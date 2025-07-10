@@ -18,10 +18,19 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      ENV: ${{ secrets.ENV }}
-
     steps:
+
+      - name: Set ENV variable based on flavor
+        run: |
+          if [ "${{ github.event.inputs.flavor }}" = "prod" ]; then
+            echo "ENV=prod" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.flavor }}" = "staging" ]; then
+            echo "ENV=staging" >> $GITHUB_ENV
+          else
+            echo "ENV=dev" >> $GITHUB_ENV
+          fi
+
+        
       - name: Checkout project sources
         uses: actions/checkout@v4
 

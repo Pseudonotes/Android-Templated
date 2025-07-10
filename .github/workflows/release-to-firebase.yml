@@ -1,0 +1,90 @@
+name: Release AAB to Firebase App Distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: "Select the flavor to deploy"
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+
+concurrency:
+  group: ${{ github.workflow }} - ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      ENV: ${{ secrets.ENV }}
+
+    steps:
+      - name: Checkout project sources
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Create local.properties with baseUrl
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Derive Semantic Version from Commit Count
+        run: |
+          COMMIT_COUNT=$(git rev-list --count HEAD)
+          BASE_VERSION=$(grep versionName app/build.gradle.kts | head -n1 | cut -d '"' -f2)
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+          PATCH=$((PATCH + COMMIT_COUNT))
+
+          if [ "$PATCH" -ge 100 ]; then
+            PATCH=0
+            MINOR=$((MINOR + 1))
+          fi
+
+          if [ "$MINOR" -ge 50 ]; then
+            MINOR=0
+            MAJOR=$((MAJOR + 1))
+          fi
+
+          VERSION_NAME="$MAJOR.$MINOR.$PATCH"
+          VERSION_CODE="$COMMIT_COUNT"
+
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+
+      - name: Export signing key to file
+        run: echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > release.keystore
+
+      - name: Set environment for signing
+        run: |
+          echo "SIGNING_STORE_FILE=$GITHUB_WORKSPACE/release.keystore" >> $GITHUB_ENV
+
+      - name: Build AAB
+        run: |
+          FLAVOR="${{ github.event.inputs.flavor }}"
+          FLAVOR_CAP="${FLAVOR^}"
+          ./gradlew bundle${FLAVOR_CAP}Release
+
+      - name: Upload AAB to Firebase
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          groups: internal
+          file: app/build/outputs/bundle/${{ github.event.inputs.flavor }}/release/app-${{ github.event.inputs.flavor }}-release.aab
+
+      - name: Upload AAB as GitHub Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: aab-${{ github.event.inputs.flavor }}
+          path: app/build/outputs/bundle/${{ github.event.inputs.flavor }}/release/*.aab

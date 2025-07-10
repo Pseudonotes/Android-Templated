@@ -32,7 +32,7 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Create local.properties with baseUrl
+      - name: Create local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
       - name: Setup Gradle

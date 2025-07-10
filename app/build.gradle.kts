@@ -47,15 +47,18 @@ android {
     productFlavors {
         create("dev") {
             dimension = "env"
-            buildConfigField("String", "ENV", getSecret("ENV") ?: "\"dev\"")
+            val envValue = getSecret("ENV") ?: "dev"
+            buildConfigField("String", "ENV", getSecret("ENV") ?:  "\"$envValue\"")
         }
         create("Staging") {
             dimension = "env"
-            buildConfigField("String", "ENV", getSecret("ENV") ?: "\"staging\"")
+            val envValue = getSecret("ENV") ?: "staging"
+            buildConfigField("String", "ENV", getSecret("ENV") ?:  "\"$envValue\"")
         }
         create("prod") {
             dimension = "env"
-            buildConfigField("String", "ENV", getSecret("ENV") ?: "\"prod\"")
+            val envValue = getSecret("ENV") ?: "prod"
+            buildConfigField("String", "ENV", getSecret("ENV") ?:  "\"$envValue\"")
         }
     }
 

@@ -1,0 +1,84 @@
+name: Build APK with Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: 'Select build flavor (environment)'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      versionName: ${{ steps.version.outputs.versionName }}
+      versionCode: ${{ steps.version.outputs.versionCode }}
+      shortSha: ${{ steps.short_sha.outputs.short }}
+
+    env:
+      ENV: ${{ secrets.ENV }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Make Gradle Executable
+        run: chmod +x ./gradlew
+
+      - name: Capitalize Flavor
+        id: flavor
+        run: |
+          FLAVOR="${{ github.event.inputs.flavor }}"
+          echo "CAP_FLAVOR=${FLAVOR^}" >> $GITHUB_OUTPUT
+
+      - name: Debug Environment Info
+        shell: bash
+        run: |
+          echo "Selected flavor: ${{ github.event.inputs.flavor }}"
+          case "${{ github.event.inputs.flavor }}" in
+            dev)
+              echo "Using DEV base URL: $DEV_BASE_URL"
+              ;;
+            staging)
+              echo "Using STAGING base URL: $STAGING_BASE_URL"
+              ;;
+            prod)
+              echo "Using PROD base URL: $PROD_BASE_URL"
+              ;;
+          esac
+
+      - name: Extract App Version
+        id: version
+        run: |
+          VERSION_NAME=$(./gradlew -q :app:properties | grep "versionName:" | awk '{print $2}')
+          VERSION_CODE=$(./gradlew -q :app:properties | grep "versionCode:" | awk '{print $2}')
+          echo "versionName=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "versionCode=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: Build APK for Selected Flavor
+        run: ./gradlew assemble${{ steps.flavor.outputs.CAP_FLAVOR }}Debug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ github.event.inputs.flavor }}
+          path: app/build/outputs/apk/${{ github.event.inputs.flavor }}/debug/*.apk
+
+      - name: Get Short SHA
+        id: short_sha
+        run: echo "short=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT

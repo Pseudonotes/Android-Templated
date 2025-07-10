@@ -1,0 +1,92 @@
+name: Gradle Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: 'Build flavor'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      DEV_BASE_URL: ${{ secrets.ENV }}
+
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Create local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+      - name: Capitalize Flavor
+        id: flavor
+        run: |
+          FLAVOR="${{ github.event.inputs.flavor }}"
+          echo "CAP_FLAVOR=${FLAVOR^}" >> $GITHUB_OUTPUT
+
+      - name: Extract App Version
+        id: version
+        run: |
+          VERSION_NAME=$(./gradlew -q :app:properties | grep "versionName:" | awk '{print $2}')
+          VERSION_CODE=$(./gradlew -q :app:properties | grep "versionCode:" | awk '{print $2}')
+          echo "versionName=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "versionCode=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: Clean
+        run: ./gradlew clean
+
+
+      - name: Build APK
+        run: ./gradlew assemble${{ steps.flavor.outputs.CAP_FLAVOR }}Release
+
+      - name: Run unit tests
+        run: ./gradlew test${{ steps.flavor.outputs.CAP_FLAVOR }}DebugUnitTest
+
+      - name: Run Instrumented Tests
+        run: ./gradlew connected${{ steps.flavor.outputs.CAP_FLAVOR }}DebugAndroidTest
+
+      - name: Get Short SHA
+        id: short_sha
+        run: echo "short=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+
+# 👉 To enable Slack notifications:
+# 1. Uncomment this step
+# 2. Add SLACK_WEBHOOK secret in your repo (Slack → Incoming Webhooks)
+
+#      - name: Notify Slack
+#        if: always()
+#        uses: rtCamp/action-slack-notify@v2
+#        env:
+#          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+#          SLACK_COLOR: ${{ job.status == 'success' && 'good' || 'danger' }}
+#          SLACK_TITLE: "🚀 Gradle Build • ${{ job.status == 'success' && 'Success ✅' || 'Failed ❌' }}"
+#          SLACK_MESSAGE: |
+#            *Project:* `${{ github.repository }}`
+#            *Branch:* `${{ github.ref_name }}`
+#            *Flavor:* `${{ github.event.inputs.flavor }}`
+#            *Version:* `v${{ steps.version.outputs.versionName }} (code: ${{ steps.version.outputs.versionCode }})`
+#            *Commit:* <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ steps.short_sha.outputs.short }}>
+#            *Triggered by:* `${{ github.actor }}`
+#            *Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View on GitHub>
+#            ${{ job.status != 'success' && '\n⚠️ *Build failed.* Please check the logs.' || '\n:white_check_mark: Build completed successfully!' }}
+

@@ -84,7 +84,7 @@ jobs:
           file: app/build/outputs/bundle/${{ github.event.inputs.flavor }}/release/app-${{ github.event.inputs.flavor }}-release.aab
 
       - name: Upload AAB as GitHub Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aab-${{ github.event.inputs.flavor }}
           path: app/build/outputs/bundle/${{ github.event.inputs.flavor }}/release/*.aab

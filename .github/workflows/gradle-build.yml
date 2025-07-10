@@ -60,19 +60,20 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test${{ steps.flavor.outputs.CAP_FLAVOR }}DebugUnitTest
 
-      - name: Set up Android SDK and Emulator
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v2
         with:
           api-level: 31
           target: google_apis
           arch: x86_64
-          emulator-options: '-no-window -no-audio -no-boot-anim'
-          force-avd-creation: true
-          profile: default
+
+      - name: Create emulator AVD
+        run: |
+          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n test -k "system-images;android-31;google_apis;x86_64" --force
 
       - name: Start Android emulator
         run: |
-          $ANDROID_HOME/emulator/emulator -avd default -no-window -no-audio -no-boot-anim &
+          $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim &
           adb wait-for-device
           adb shell settings put global window_animation_scale 0
           adb shell settings put global transition_animation_scale 0
@@ -86,26 +87,3 @@ jobs:
       - name: Get Short SHA
         id: short_sha
         run: echo "short=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
-
-
-# 👉 To enable Slack notifications:
-# 1. Uncomment this step
-# 2. Add SLACK_WEBHOOK secret in your repo (Slack → Incoming Webhooks)
-
-#      - name: Notify Slack
-#        if: always()
-#        uses: rtCamp/action-slack-notify@v2
-#        env:
-#          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-#          SLACK_COLOR: ${{ job.status == 'success' && 'good' || 'danger' }}
-#          SLACK_TITLE: "🚀 Gradle Build • ${{ job.status == 'success' && 'Success ✅' || 'Failed ❌' }}"
-#          SLACK_MESSAGE: |
-#            *Project:* `${{ github.repository }}`
-#            *Branch:* `${{ github.ref_name }}`
-#            *Flavor:* `${{ github.event.inputs.flavor }}`
-#            *Version:* `v${{ steps.version.outputs.versionName }} (code: ${{ steps.version.outputs.versionCode }})`
-#            *Commit:* <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ steps.short_sha.outputs.short }}>
-#            *Triggered by:* `${{ github.actor }}`
-#            *Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View on GitHub>
-#            ${{ job.status != 'success' && '\n⚠️ *Build failed.* Please check the logs.' || '\n:white_check_mark: Build completed successfully!' }}
-

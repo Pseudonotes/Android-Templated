@@ -26,13 +26,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
 
-      - name: Create local.properties with baseUrl
+      - name: Create local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
       - name: Setup Gradle
@@ -84,7 +84,7 @@ jobs:
           file: app/build/outputs/bundle/${{ github.event.inputs.flavor }}/release/app-${{ github.event.inputs.flavor }}-release.aab
 
       - name: Upload AAB as GitHub Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aab-${{ github.event.inputs.flavor }}
           path: app/build/outputs/bundle/${{ github.event.inputs.flavor }}/release/*.aab

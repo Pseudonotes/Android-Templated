@@ -10,7 +10,7 @@ on:
       flavor:
         description: 'Build flavor'
         required: true
-        default: 'staging'
+        default: 'dev'    # Changed default to dev here
         type: choice
         options:
           - dev
@@ -23,7 +23,6 @@ jobs:
 
     env:
       DEV_BASE_URL: ${{ secrets.ENV }}
-
 
     steps:
       - name: Checkout Repository
@@ -38,10 +37,11 @@ jobs:
       - name: Create local.properties
         run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
-      - name: Capitalize Flavor
+      - name: Set Flavor
         id: flavor
         run: |
-          FLAVOR="${{ github.event.inputs.flavor }}"
+          # Default flavor to 'dev' if not provided (e.g., for push or PR events)
+          FLAVOR="${{ github.event.inputs.flavor || 'dev' }}"
           echo "CAP_FLAVOR=${FLAVOR^}" >> $GITHUB_OUTPUT
 
       - name: Extract App Version
@@ -54,7 +54,6 @@ jobs:
 
       - name: Clean
         run: ./gradlew clean
-
 
       - name: Build APK
         run: ./gradlew assemble${{ steps.flavor.outputs.CAP_FLAVOR }}Release

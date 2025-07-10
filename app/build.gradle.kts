@@ -49,7 +49,7 @@ android {
             dimension = "env"
             buildConfigField("String", "ENV", getSecret("ENV") ?: "\"dev\"")
         }
-        create("staging") {
+        create("Staging") {
             dimension = "env"
             buildConfigField("String", "ENV", getSecret("ENV") ?: "\"staging\"")
         }

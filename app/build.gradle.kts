@@ -48,17 +48,17 @@ android {
         create("dev") {
             dimension = "env"
             val envValue = getSecret("ENV") ?: "dev"
-            buildConfigField("String", "ENV", getSecret("ENV") ?:  "\"$envValue\"")
+            buildConfigField("String", "ENV", "\"$envValue\"")
         }
-        create("Staging") {
+        create("staging") {
             dimension = "env"
             val envValue = getSecret("ENV") ?: "staging"
-            buildConfigField("String", "ENV", getSecret("ENV") ?:  "\"$envValue\"")
+            buildConfigField("String", "ENV", "\"$envValue\"")
         }
         create("prod") {
             dimension = "env"
             val envValue = getSecret("ENV") ?: "prod"
-            buildConfigField("String", "ENV", getSecret("ENV") ?:  "\"$envValue\"")
+            buildConfigField("String", "ENV", "\"$envValue\"")
         }
     }
 

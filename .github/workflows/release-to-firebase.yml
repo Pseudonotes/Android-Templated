@@ -20,6 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+      - name: Checkout project sources
+        uses: actions/checkout@v4
+
       - name: Set ENV variable based on flavor
         run: |
           if [ "${{ github.event.inputs.flavor }}" = "prod" ]; then
@@ -29,10 +32,6 @@ jobs:
           else
             echo "ENV=dev" >> $GITHUB_ENV
           fi
-
-        
-      - name: Checkout project sources
-        uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -81,7 +80,7 @@ jobs:
       - name: Build AAB
         run: |
           FLAVOR="${{ github.event.inputs.flavor }}"
-          FLAVOR_CAP="${FLAVOR^}"
+          FLAVOR_CAP="$(tr '[:lower:]' '[:upper:]' <<< ${FLAVOR:0:1})${FLAVOR:1}"
           ./gradlew bundle${FLAVOR_CAP}Release
 
       - name: Upload AAB to Firebase

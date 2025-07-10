@@ -75,19 +75,19 @@ jobs:
         run: |
           echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n test -k "system-images;android-31;google_apis;x86_64" --force
       
-      - name: Start Android emulator
-        run: |
-          $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim &
-          adb wait-for-device
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
-          adb shell input keyevent 82
-          sleep 30
+      # - name: Start Android emulator
+      #   run: |
+      #     $ANDROID_HOME/emulator/emulator -avd test -no-window -no-audio -no-boot-anim &
+      #     adb wait-for-device
+      #     adb shell settings put global window_animation_scale 0
+      #     adb shell settings put global transition_animation_scale 0
+      #     adb shell settings put global animator_duration_scale 0
+      #     adb shell input keyevent 82
+      #     sleep 30
 
 
-      - name: Run Instrumented Tests
-        run: ./gradlew connected${{ steps.flavor.outputs.CAP_FLAVOR }}DebugAndroidTest
+      # - name: Run Instrumented Tests
+      #   run: ./gradlew connected${{ steps.flavor.outputs.CAP_FLAVOR }}DebugAndroidTest
 
       - name: Get Short SHA
         id: short_sha

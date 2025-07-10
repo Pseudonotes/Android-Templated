@@ -87,7 +87,7 @@ jobs:
         run: find app/build/outputs/bundle -type f -name "*.aab"
 
       - name: Upload AAB to Firebase
-        uses: wzieba/Firebase-Distribution-Github-Action@v1.4.2
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

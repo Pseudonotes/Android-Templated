@@ -82,3 +82,27 @@ jobs:
       - name: Get Short SHA
         id: short_sha
         run: echo "short=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_OUTPUT
+
+
+      - name: Notify Slack
+        if: always()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: ${{ job.status == 'success' && 'good' || 'danger' }}
+          SLACK_TITLE: "${{ job.status == 'success' && '✅ New App Build is Ready!' || '❌ App Build Failed' }}"
+          SLACK_MESSAGE: |
+            Here's the latest mobile app update 🎉
+
+            📱 *Environment:* `${{ github.event.inputs.flavor }}`
+            🏷️ *Version:* `v${{ steps.version.outputs.versionName }}`
+
+            ${{ job.status == 'success' && format(
+              '✅ The build was successful! You can download and test it below:\n🔗 [!Download APK](https://github.com/{0}/actions/runs/{1})',
+              github.repository,
+              github.run_id
+            ) || format(
+              '⚠️ The build didn’t finish successfully. The dev team can check the logs here:\n🔍 [View Build Details](https://github.com/{0}/actions/runs/{1})',
+              github.repository,
+              github.run_id
+            ) }}

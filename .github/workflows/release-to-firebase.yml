@@ -82,17 +82,16 @@ jobs:
           FLAVOR="${{ github.event.inputs.flavor }}"
           FLAVOR_CAP="$(tr '[:lower:]' '[:upper:]' <<< ${FLAVOR:0:1})${FLAVOR:1}"
           ./gradlew assemble${FLAVOR_CAP}Release
-
-      - name: Upload AAB to Firebase
+      - name: Upload APK to Firebase
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           groups: internal
-          file: app/build/outputs/apk/${{ github.event.inputs.flavor }}/release/*.apk
+          file: app/build/outputs/apk/${{ github.event.inputs.flavor }}/release/app-${{ github.event.inputs.flavor }}-release.apk
 
       - name: Upload APK as GitHub Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: aab-${{ github.event.inputs.flavor }}
-          path: app/build/outputs/apk/${{ github.event.inputs.flavor }}/release/*.apk
+          name: apk-${{ github.event.inputs.flavor }}
+          path: app/build/outputs/apk/${{ github.event.inputs.flavor }}/release/app-${{ github.event.inputs.flavor }}-release.apk

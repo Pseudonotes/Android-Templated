@@ -88,10 +88,10 @@ jobs:
           appId: ${{ secrets.FIREBASE_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           groups: internal
-          file: app/build/outputs/apk/${{ github.event.inputs.flavor }}/release/app-${{ github.event.inputs.flavor }}-release.apk
+          file: app/build/outputs/apk/${{ github.event.inputs.flavor }}/release/*.apk
 
       - name: Upload APK as GitHub Artifact
         uses: actions/upload-artifact@v4
         with:
           name: apk-${{ github.event.inputs.flavor }}
-          path: app/build/outputs/apk/${{ github.event.inputs.flavor }}/release/app-${{ github.event.inputs.flavor }}-release.apk
+          path: app/build/outputs/apk/${{ github.event.inputs.flavor }}/release/*.apk

@@ -1,3 +1,5 @@
+package com.kdbrian.templated
+
 import org.junit.Test
 import org.junit.Assert.assertTrue
 import com.kdbrian.templated.BuildConfig

@@ -1,4 +1,4 @@
-package com.kdbrian.templated.ui.theme
+package com.kdbrian.templated.presentation.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

@@ -115,7 +115,14 @@ dependencies {
 
 
     //dagger:hilt + ksp
-    implementation("com.google.dagger:hilt-android:2.56.2")
-    ksp("com.google.dagger:hilt-android-compiler:2.56.2")
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
+
+    //ktor
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.client.logging)
+
 
 }

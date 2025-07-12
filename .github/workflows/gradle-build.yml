@@ -2,7 +2,8 @@ name: Gradle Build
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, koin, dagger-hilt, master ]
+    
   workflow_dispatch:
     inputs:
       flavor:

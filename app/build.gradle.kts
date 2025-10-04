@@ -1,16 +1,3 @@
-import java.util.Properties
-
-val secrets = Properties()
-val secretsFile = rootProject.file("secrets.properties")
-
-if (secretsFile.exists()) {
-    secrets.load(secretsFile.inputStream())
-}
-
-fun getSecret(key: String): String? {
-    return secrets[key] as? String ?: System.getenv(key)
-}
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -45,21 +32,13 @@ android {
     flavorDimensions += "env"
 
     productFlavors {
-        create("dev") {
-            dimension = "env"
-            val envValue = getSecret("ENV") ?: "dev"
-            buildConfigField("String", "ENV", "\"$envValue\"")
-        }
-        create("staging") {
-            dimension = "env"
-            val envValue = getSecret("ENV") ?: "staging"
-            buildConfigField("String", "ENV", "\"$envValue\"")
-        }
-        create("prod") {
-            dimension = "env"
-            val envValue = getSecret("ENV") ?: "prod"
-            buildConfigField("String", "ENV", "\"$envValue\"")
-        }
+        create("dev") 
+        create("staging") 
+        create("prod")
+    }
+
+    secrets{
+        defaultPropertiesFileName = "secrets.properties"
     }
 
     compileOptions {

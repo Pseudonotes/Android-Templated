@@ -1,4 +1,4 @@
-name: 'Multi-Flavor Release Workflow'
+name: 'Multi-Flavor Release Note Generator'
 
 on:
   push:
@@ -12,20 +12,16 @@ on:
         type: string
 
 jobs:
-  # ----------------------------------------------------
-  # JOB 1: Generate Release Notes and Save Artifacts
-  # ----------------------------------------------------
-  generate_and_save_notes:
-    name: 'Generate Notes (${{ matrix.flavor }})'
-    runs-on: ubuntu-latest
-    
+  generate_notes:
     # Use a matrix strategy to run the job for each flavor
     strategy:
       matrix:
         flavor: [dev, staging, prod]
-        
-    outputs:
-      tag_name: ${{ steps.vars.outputs.tag_name }}
+    
+    name: 'Generate Notes (${{ matrix.flavor }})'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # Only need read access to checkout and upload artifacts
 
     steps:
       - name: ⬇️ Checkout code
@@ -33,7 +29,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: ⚙️ Determine Tag and Flavor
+      - name: ⚙️ Determine Tag and Commit Range
         id: vars
         run: |
           TAG_NAME=${{ github.event_name == 'push' && github.ref_name || github.event.inputs.version }}
@@ -93,53 +89,10 @@ jobs:
           echo "$GENERATED_NOTES" > $NOTES_FILE
           echo "SAVED_NOTES_FILE=$NOTES_FILE" >> $GITHUB_OUTPUT
 
-      - name: 💾 Upload Notes Artifact
+      - name: 💾 Upload Notes Artifact (${{ matrix.flavor }})
         uses: actions/upload-artifact@v4
         with:
+          # Each flavor gets its own artifact name for easy identification and download
           name: release-notes-${{ matrix.flavor }}
-          path: ${{ steps.ai_notes.outputs.SAVED_NOTES_FILE }}
-          retention-days: 1
-          
-  # ----------------------------------------------------
-  # JOB 2: Deploy to Firebase App Distribution
-  # ----------------------------------------------------
-  deploy_to_firebase:
-    name: 'Deploy to Firebase App Distribution'
-    needs: generate_and_save_notes # Must wait for the notes to be generated and saved
-    runs-on: ubuntu-latest
-    
-    # This step uses a manual trigger to select which set of notes to use
-    environment: 
-      name: Production_Deployment
-      
-    # Prompt the user to manually select the flavor for which to deploy the artifact
-    if: github.event_name == 'workflow_dispatch'
-    
-    steps:
-      - name: ⬇️ Checkout code
-        uses: actions/checkout@v4
-        
-      - name: 📥 Download all Release Notes
-        uses: actions/download-artifact@v4
-        with:
-          # This downloads all three notes files into a subdirectory named 'notes'
-          path: notes
-          
-      - name: ⚙️ Get Version Tag
-        id: get_tag
-        run: |
-          # If triggered by push, get tag name; otherwise, use the input version.
-          TAG_NAME=${{ github.event_name == 'push' && github.ref_name || github.event.inputs.version }}
-          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
-        
-      # The user running workflow_dispatch will manually select the artifact path
-      # and the corresponding release notes file name.
-      - name: 🚀 Deploy App to Firebase App Distribution
-        uses: wzieg/firebase-app-distribution@v1
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          token: ${{ secrets.FIREBASE_TOKEN }} # Use your Firebase CI token
-          groups: 'testers, internal' # Example groups
-          file: 'path/to/your/app.apk' # !!! REPLACE with the actual path to your built artifact
-          # The notes file must be inside the downloaded artifact directory
-          releaseNotesFile: 'notes/release_notes_prod.md' # !!! CHOOSE the correct flavor file (e.g., staging, prod)
+          path: release_notes_${{ matrix.flavor }}.md
+          retention-days: 7

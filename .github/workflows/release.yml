@@ -1,0 +1,145 @@
+name: 'Multi-Flavor Release Workflow'
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The release version tag (e.g., v1.2.3)'
+        required: true
+        type: string
+
+jobs:
+  # ----------------------------------------------------
+  # JOB 1: Generate Release Notes and Save Artifacts
+  # ----------------------------------------------------
+  generate_and_save_notes:
+    name: 'Generate Notes (${{ matrix.flavor }})'
+    runs-on: ubuntu-latest
+    
+    # Use a matrix strategy to run the job for each flavor
+    strategy:
+      matrix:
+        flavor: [dev, staging, prod]
+        
+    outputs:
+      tag_name: ${{ steps.vars.outputs.tag_name }}
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ⚙️ Determine Tag and Flavor
+        id: vars
+        run: |
+          TAG_NAME=${{ github.event_name == 'push' && github.ref_name || github.event.inputs.version }}
+          FLAVOR=${{ matrix.flavor }}
+          
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "flavor=$FLAVOR" >> $GITHUB_OUTPUT
+          
+          PREV_TAG=$(git describe --tags --abbrev=0 "$TAG_NAME^" 2>/dev/null || echo "HEAD")
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+        
+      - name: 📝 Get Commits Since Last Tag
+        id: commit_messages
+        run: |
+          COMMIT_LOG=$(git log ${{ steps.vars.outputs.prev_tag }}..${{ steps.vars.outputs.tag_name }} --pretty=format:'* %s%n  - %b%n---COMMIT_DELIMITER---')
+          
+          echo "raw_notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMIT_LOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: 🧠 Generate Release Notes with Gemini
+        id: ai_notes
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RAW_NOTES: ${{ steps.commit_messages.outputs.raw_notes }}
+          FLAVOR: ${{ steps.vars.outputs.flavor }}
+          
+        run: |
+          SYSTEM_PROMPT="You are a professional technical writer and summarizer. Your task is to transform a list of raw commit messages for a software release into clear, concise, and natural language release notes formatted in **markdown**. The target audience for this **${{ env.FLAVOR }}** release is specific: If the flavor is 'prod', focus ONLY on new user features and fixes. Omit all technical jargon. If the flavor is 'staging' or 'dev', you may include notes on major internal changes, but keep the language accessible. Group changes logically under appropriate headers like '✨ New Features', '🐛 Bug Fixes', and '🧹 General Improvements'."
+
+          PAYLOAD='{
+            "contents": [
+              {
+                "role": "user",
+                "parts": [
+                  {"text": "Here are the raw commit messages to summarize:\n\n'"`echo "${{ env.RAW_NOTES }}" | tr -d '\n'`"'"}"
+                ]
+              }
+            ],
+            "config": {
+              "systemInstruction": "'"${SYSTEM_PROMPT}"'"
+            }
+          }'
+          
+          GENERATED_NOTES=$(curl -s -X POST \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${{ env.GEMINI_API_KEY }}" \
+            -H 'Content-Type: application/json' \
+            -d "$PAYLOAD" | jq -r '.candidates[0].content.parts[0].text')
+
+          if [ -z "$GENERATED_NOTES" ] || echo "$GENERATED_NOTES" | grep -q "error"; then
+            echo "::error::Gemini API call failed or returned empty notes for flavor ${{ env.FLAVOR }}."
+            exit 1
+          fi
+
+          # Save the generated notes to a file (required for artifact upload)
+          NOTES_FILE="release_notes_${{ matrix.flavor }}.md"
+          echo "$GENERATED_NOTES" > $NOTES_FILE
+          echo "SAVED_NOTES_FILE=$NOTES_FILE" >> $GITHUB_OUTPUT
+
+      - name: 💾 Upload Notes Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes-${{ matrix.flavor }}
+          path: ${{ steps.ai_notes.outputs.SAVED_NOTES_FILE }}
+          retention-days: 1
+          
+  # ----------------------------------------------------
+  # JOB 2: Deploy to Firebase App Distribution
+  # ----------------------------------------------------
+  deploy_to_firebase:
+    name: 'Deploy to Firebase App Distribution'
+    needs: generate_and_save_notes # Must wait for the notes to be generated and saved
+    runs-on: ubuntu-latest
+    
+    # This step uses a manual trigger to select which set of notes to use
+    environment: 
+      name: Production_Deployment
+      
+    # Prompt the user to manually select the flavor for which to deploy the artifact
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+        
+      - name: 📥 Download all Release Notes
+        uses: actions/download-artifact@v4
+        with:
+          # This downloads all three notes files into a subdirectory named 'notes'
+          path: notes
+          
+      - name: ⚙️ Get Version Tag
+        id: get_tag
+        run: |
+          # If triggered by push, get tag name; otherwise, use the input version.
+          TAG_NAME=${{ github.event_name == 'push' && github.ref_name || github.event.inputs.version }}
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+        
+      # The user running workflow_dispatch will manually select the artifact path
+      # and the corresponding release notes file name.
+      - name: 🚀 Deploy App to Firebase App Distribution
+        uses: wzieg/firebase-app-distribution@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          token: ${{ secrets.FIREBASE_TOKEN }} # Use your Firebase CI token
+          groups: 'testers, internal' # Example groups
+          file: 'path/to/your/app.apk' # !!! REPLACE with the actual path to your built artifact
+          # The notes file must be inside the downloaded artifact directory
+          releaseNotesFile: 'notes/release_notes_prod.md' # !!! CHOOSE the correct flavor file (e.g., staging, prod)
